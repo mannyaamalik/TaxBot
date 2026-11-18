@@ -1,0 +1,75 @@
+# Render.com Blueprint — deploys the TaxBot backend as a Docker web service.
+# Import this file at: https://dashboard.render.com/select-repo → "Blueprint"
+#
+# Required secrets (set in Render dashboard under Environment > Secret Files):
+#   INGEST_API_KEY   — strong random token for POST /ingest
+#   LLM_API_KEY      — only if LLM_PROVIDER=openai
+#   SENTRY_DSN       — optional, for error tracking
+#
+# See docs/aws-deployment.md for the AWS alternative.
+
+services:
+  - type: web
+    name: taxbot-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    region: oregon           # choose the region closest to your users
+    plan: starter            # 512 MB RAM, 0.5 vCPU — upgrade for production load
+    numInstances: 1
+    healthCheckPath: /ready
+
+    # Persistent disk for ChromaDB data
+    disk:
+      name: chromadb-data
+      mountPath: /app/data/chromadb
+      sizeGB: 5              # increase if your KB grows beyond ~1 GB of vectors
+
+    envVars:
+      # ── Server ──────────────────────────────────────────────────────────
+      - key: HOST
+        value: 0.0.0.0
+      - key: PORT
+        value: "8000"
+      - key: LOG_LEVEL
+        value: INFO
+      - key: PYTHONUNBUFFERED
+        value: "1"
+
+      # ── CORS — set to your Vercel frontend URL ───────────────────────────
+      - key: ALLOWED_ORIGINS
+        value: "https://taxmitra.vercel.app"   # replace with your actual domain
+
+      # ── LLM ─────────────────────────────────────────────────────────────
+      - key: LLM_PROVIDER
+        value: openai         # or "ollama" if running your own Ollama instance
+      - key: LLM_MODEL
+        value: gpt-4o-mini
+      - key: LLM_TEMPERATURE
+        value: "0.0"
+      - key: LLM_MAX_TOKENS
+        value: "1024"
+
+      # ── Secrets (populate in Render dashboard, never in this file) ───────
+      - key: INGEST_API_KEY
+        sync: false           # Render prompts you to enter this in the dashboard
+      - key: LLM_API_KEY
+        sync: false
+      - key: SENTRY_DSN
+        sync: false
+
+      # ── Retrieval ────────────────────────────────────────────────────────
+      - key: CHROMA_DB_PATH
+        value: /app/data/chromadb
+      - key: RERANKER_ENABLED
+        value: "true"
+      - key: SIMILARITY_THRESHOLD
+        value: "0.40"
+      - key: RETRIEVAL_TOP_K
+        value: "5"
+
+      # ── Session ──────────────────────────────────────────────────────────
+      - key: SESSION_TTL_MINUTES
+        value: "60"
+      - key: RATE_LIMIT_PER_MINUTE
+        value: "30"

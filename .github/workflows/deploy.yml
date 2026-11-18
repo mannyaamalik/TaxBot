@@ -1,0 +1,59 @@
+name: Deploy to Render + Vercel
+
+on:
+  workflow_run:
+    workflows: ["Build and push Docker images"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:   # allow manual trigger
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # ── Backend → Render ────────────────────────────────────────────────
+      - name: Trigger Render deploy (backend)
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$RENDER_DEPLOY_HOOK_URL" ]; then
+            echo "RENDER_DEPLOY_HOOK_URL is not set — skipping Render deploy."
+          else
+            RESPONSE=$(curl --silent --show-error --fail -X POST "$RENDER_DEPLOY_HOOK_URL")
+            echo "Render response: $RESPONSE"
+          fi
+
+      # ── Frontend → Vercel ───────────────────────────────────────────────
+      - name: Deploy frontend to Vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "VERCEL_TOKEN is not set — skipping Vercel deploy."
+          else
+            npm install -g vercel --silent
+            cd taxmitra-web
+            vercel pull  --yes --environment=production --token="$VERCEL_TOKEN"
+            vercel build --prod --token="$VERCEL_TOKEN"
+            vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"
+          fi
+
+      # ── Optional: notify Slack/Discord ─────────────────────────────────
+      - name: Send deploy notification
+        env:
+          NOTIFY_WEBHOOK_URL: ${{ secrets.NOTIFY_WEBHOOK_URL }}
+        if: always()
+        run: |
+          if [ -z "$NOTIFY_WEBHOOK_URL" ]; then exit 0; fi
+          STATUS="${{ job.status }}"
+          EMOJI=$( [ "$STATUS" = "success" ] && echo "✅" || echo "❌" )
+          curl -s -X POST "$NOTIFY_WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            -d "{\"text\":\"$EMOJI TaxBot deploy $STATUS — commit ${{ github.sha }} by ${{ github.actor }}\"}"

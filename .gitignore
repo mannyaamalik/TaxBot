@@ -1,0 +1,56 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Environment / secrets — NEVER commit
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Data (too large / runtime-generated)
+data/chromadb/
+data/ingest.log
+kb_update_report.json
+eval-results.json
+
+# Node / Next.js
+taxmitra-web/node_modules/
+taxmitra-web/.next/
+taxmitra-web/.vercel/
+taxmitra-web/out/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Kiro workspace metadata
+.kiro/
+
+# Logs
+*.log

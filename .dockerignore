@@ -1,0 +1,51 @@
+# Python artefacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Data (mounted as volume in production)
+data/chromadb/
+
+# Frontend (separate image)
+taxmitra-web/
+
+# Docs / scripts not needed at runtime
+docs/
+tests/
+design.md
+requirements.md
+tasks.md
+tasks_deployment.md
+*.md
+
+# Git
+.git/
+.github/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+.kiro/
+
+# Secrets (never bake into image)
+.env
+.env.local
+.env.*
+!.env.example
+
+# OS
+.DS_Store
+Thumbs.db

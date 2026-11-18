@@ -1,0 +1,6 @@
+# Evaluation thresholds for CI — edit these to tighten or relax the gate.
+# The backend-ci workflow reads this file and fails if any threshold is not met.
+
+pass_rate_threshold: 80         # minimum % of eval questions that must PASS
+p95_latency_ms: 15000           # maximum allowed p95 latency in milliseconds
+citation_rate_threshold: 90     # minimum % of non-not-found answers that must cite sources

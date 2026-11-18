@@ -1,0 +1,71 @@
+version: "3.9"
+
+# ── TaxBot: backend + frontend + persistent ChromaDB volume ───────────────
+#
+# Quick start:
+#   cp .env.example .env        # fill in INGEST_API_KEY and LLM settings
+#   docker compose up --build   # first run builds both images
+#   docker compose up           # subsequent runs reuse built images
+#
+# Data persists across restarts via the named volume "chromadb_data".
+
+services:
+
+  # ── FastAPI backend ───────────────────────────────────────────────────
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: taxbot-api:latest
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # Override specific settings for the compose network
+      CHROMA_DB_PATH: /app/data/chromadb
+      HOST: 0.0.0.0
+      PORT: "8000"
+      # Allow the Next.js container to call the backend
+      ALLOWED_ORIGINS: "http://localhost:3000,http://frontend:3000"
+    ports:
+      - "8000:8000"
+    volumes:
+      # Persist ChromaDB data across container restarts
+      - chromadb_data:/app/data/chromadb
+      # Mount raw documents for ingestion scripts
+      - ./docs:/app/docs:ro
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8000/ready"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 3
+
+  # ── Next.js frontend ──────────────────────────────────────────────────
+  frontend:
+    build:
+      context: taxmitra-web
+      dockerfile: Dockerfile
+      args:
+        # Point the frontend build at the backend service
+        NEXT_PUBLIC_API_URL: "http://backend:8000"
+    image: taxbot-web:latest
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: "http://backend:8000"
+      PORT: "3000"
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+
+# ── Named volumes ─────────────────────────────────────────────────────────
+volumes:
+  chromadb_data:
+    driver: local

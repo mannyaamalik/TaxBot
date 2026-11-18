@@ -1,0 +1,57 @@
+name: Scheduled KB update
+
+# Runs automatically on:
+#   - Feb 1 at 06:00 UTC (day after Union Budget is typically presented)
+#   - Apr 2 at 06:00 UTC (start of new financial year — after Apr 1)
+# Also supports manual trigger with a custom directory path.
+on:
+  schedule:
+    - cron: "0 6 1 2 *"    # February 1
+    - cron: "0 6 2 4 *"    # April 2
+  workflow_dispatch:
+    inputs:
+      update_dir:
+        description: "Directory inside the repo containing new documents (relative to repo root)"
+        default: "docs/raw"
+        required: false
+      dry_run:
+        description: "Dry run only (print actions, do not ingest)"
+        type: boolean
+        default: false
+
+jobs:
+  kb-update:
+    name: Ingest new tax documents
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install deps
+        run: pip install -r requirements.txt
+
+      - name: Run scheduled KB update
+        env:
+          PYTHONPATH: .
+          INGEST_API_KEY:      ${{ secrets.INGEST_API_KEY }}
+          TAXBOT_SERVER:       ${{ secrets.TAXBOT_SERVER_URL }}
+          NOTIFY_WEBHOOK_URL:  ${{ secrets.NOTIFY_WEBHOOK_URL }}
+          KB_UPDATE_DIR:       ${{ github.event.inputs.update_dir || 'docs/raw' }}
+        run: |
+          python3 scripts/scheduled_kb_update.py \
+            --dir "$KB_UPDATE_DIR" \
+            --server "$TAXBOT_SERVER" \
+            ${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}
+
+      - name: Upload update report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: kb-update-report-${{ github.run_id }}
+          path: kb_update_report.json
